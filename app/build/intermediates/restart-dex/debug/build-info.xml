@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<instant-run
+    abi="armeabi-v7a,armeabi"
+    api-level="23"
+    density="xxhdpi"
+    format="3"
+    timestamp="5491493355577"
+    verifier="COMPATIBLE" >
+
+    <task
+        name="javac"
+        duration="108" />
+    <task
+        name="instant-run-dex"
+        duration="448" />
+    <task
+        name="instant-run-transform"
+        duration="26" />
+    <task
+        name="verifier"
+        duration="4" />
+
+    <artifact
+        location="D:\Docs\android\NestedScrolling\app\build\intermediates\reload-dex\debug\classes.dex"
+        type="RELOAD_DEX" />
+
+    <build timestamp="5098340572762" >
+        <artifact
+            location="D:\Docs\android\NestedScrolling\app\build\outputs\apk\app-debug.apk"
+            type="MAIN" />
+    </build>
+    <build
+        timestamp="5228625402948"
+        verifier="COMPATIBLE" >
+        <artifact
+            location="D:\Docs\android\NestedScrolling\app\build\intermediates\builds\debug\5228625402948\classes.dex"
+            type="RELOAD_DEX" />
+    </build>
+    <build
+        timestamp="5313509256991"
+        verifier="COMPATIBLE" >
+        <artifact
+            location="D:\Docs\android\NestedScrolling\app\build\intermediates\builds\debug\5313509256991\classes.dex"
+            type="RELOAD_DEX" />
+    </build>
+    <build
+        timestamp="5343636744378"
+        verifier="COMPATIBLE" >
+        <artifact
+            location="D:\Docs\android\NestedScrolling\app\build\intermediates\builds\debug\5343636744378\classes.dex"
+            type="RELOAD_DEX" />
+    </build>
+    <build
+        timestamp="5419146693926"
+        verifier="COMPATIBLE" >
+        <artifact
+            location="D:\Docs\android\NestedScrolling\app\build\intermediates\builds\debug\5419146693926\classes.dex"
+            type="RELOAD_DEX" />
+    </build>
+    <build
+        timestamp="5443220552273"
+        verifier="COMPATIBLE" >
+        <artifact
+            location="D:\Docs\android\NestedScrolling\app\build\intermediates\builds\debug\5443220552273\classes.dex"
+            type="RELOAD_DEX" />
+    </build>
+    <build
+        timestamp="5491493355577"
+        verifier="COMPATIBLE" >
+        <artifact
+            location="D:\Docs\android\NestedScrolling\app\build\intermediates\reload-dex\debug\classes.dex"
+            type="RELOAD_DEX" />
+    </build>
+
+</instant-run>
