@@ -5,7 +5,6 @@ import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
@@ -16,14 +15,19 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
 
     private GestureDetector mDetector;
 
-    private View mTargetBottom;
-    private View mTarget;
+    private View mPrimary;
+    private View mSecondary;
+
+    private int mOffset = 0;
+    private int mMaxOffset;
 
     private ValueAnimator mTargetAnimation;
 
     private boolean mDragging = false;
     private long mDraggingStart;
     private float mDraggingDy;
+
+    private OnDragListener mListener;
 
     public SlidingLayout(Context context) {
         this(context, null, 0, 0);
@@ -42,38 +46,8 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
         mDetector = new GestureDetector(context, this);
     }
 
-    private boolean hasTargets() {
-        return mTargetBottom != null && mTarget != null;
-    }
-
-    private void ensureTargets() {
-        if (getChildCount() > 1) {
-            mTargetBottom = getChildAt(0);
-            mTarget = getChildAt(1);
-            if (mTargetAnimation == null) {
-                mTargetAnimation = ObjectAnimator.ofFloat(mTarget, "translationY", 0, 0);
-                mTargetAnimation.addListener(new Animator.AnimatorListener() {
-                    @Override
-                    public void onAnimationStart(Animator animation) {
-                    }
-
-                    @Override
-                    public void onAnimationEnd(Animator animation) {
-                        mDragging = false;
-                    }
-
-                    @Override
-                    public void onAnimationCancel(Animator animation) {
-                    }
-
-                    @Override
-                    public void onAnimationRepeat(Animator animation) {
-                    }
-                });
-            } else {
-                mTargetAnimation.setTarget(mTarget);
-            }
-        }
+    public void setOnDragListener(OnDragListener listener) {
+        mListener = listener;
     }
 
     @Override
@@ -82,7 +56,7 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
             ensureTargets();
         }
         if (Math.abs(dyUnconsumed) > 0 && !mDragging && hasTargets()) {
-            startDragging();
+            startDrag();
         }
         if (mDragging) {
             onDrag(dyUnconsumed);
@@ -106,30 +80,65 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
 
     @Override
     public void onStopNestedScroll(View target) {
+        super.onStopNestedScroll(target);
         long now = System.currentTimeMillis();
         if (Math.abs(mDraggingDy / (now - mDraggingStart)) > 2 && mDraggingDy < 0) {
             hide();
             return;
         }
         if (mDragging) {
-            onReleaseDrag();
+            releaseDrag();
         }
-        super.onStopNestedScroll(target);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         mDetector.onTouchEvent(event);
         if (mDragging && event.getAction() == MotionEvent.ACTION_UP) {
-            onReleaseDrag();
+            releaseDrag();
             return true;
         }
         return super.onTouchEvent(event);
     }
 
-    // Dragging view
+    // Main
 
-    private void startDragging() {
+    private boolean hasTargets() {
+        return mPrimary != null && mSecondary != null;
+    }
+
+    private void ensureTargets() {
+        if (getChildCount() > 1) {
+            mPrimary = getChildAt(0);
+            mSecondary = getChildAt(1);
+            mMaxOffset = mSecondary.getHeight() - mOffset;
+            if (mTargetAnimation == null) {
+                mTargetAnimation = ObjectAnimator.ofFloat(mSecondary, "translationY", 0, 0);
+                mTargetAnimation.addListener(new Animator.AnimatorListener() {
+                    @Override
+                    public void onAnimationStart(Animator animation) {
+                    }
+
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        mDragging = false;
+                    }
+
+                    @Override
+                    public void onAnimationCancel(Animator animation) {
+                    }
+
+                    @Override
+                    public void onAnimationRepeat(Animator animation) {
+                    }
+                });
+            } else {
+                mTargetAnimation.setTarget(mSecondary);
+            }
+        }
+    }
+
+    public void startDrag() {
         if (mTargetAnimation.isRunning()) {
             return;
         }
@@ -138,29 +147,32 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
         mDragging = true;
     }
 
-    private void onDrag(float dy) {
+    public void onDrag(float dy) {
         if (mTargetAnimation.isRunning()) {
             return;
         }
-        float ty = mTarget.getTranslationY() - dy;
+        float ty = mSecondary.getTranslationY() - dy;
         mDraggingDy += dy;
         if (ty < 0) {
-            mTarget.setTranslationY(0);
+            mSecondary.setTranslationY(0);
             return;
         }
-        if (Math.abs(ty) < mTarget.getHeight()) {
-            mTarget.setTranslationY(ty);
+        if (Math.abs(ty) < mMaxOffset) {
+            mSecondary.setTranslationY(ty);
+            if (mListener != null) {
+                mListener.onDragProgress(Math.abs(ty) / mMaxOffset);
+            }
         } else {
-            mTarget.setTranslationY(mTarget.getHeight());
+            mSecondary.setTranslationY(mMaxOffset);
         }
     }
 
-    private void onReleaseDrag() {
+    public void releaseDrag() {
         if (mTargetAnimation.isRunning()) {
             return;
         }
         if (mDragging) {
-            if (Math.abs(mTarget.getTranslationY()) > mTarget.getHeight() / 2) {
+            if (Math.abs(mSecondary.getTranslationY()) > mMaxOffset / 2) {
                 hide();
             } else {
                 show();
@@ -169,18 +181,18 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
     }
 
     private void hide() {
-        if (mTarget.getTranslationY() >= mTarget.getHeight()) {
+        if (mSecondary.getTranslationY() >= mMaxOffset) {
             return;
         }
-        mTargetAnimation.setFloatValues(mTarget.getTranslationY(), mTarget.getHeight());
+        mTargetAnimation.setFloatValues(mSecondary.getTranslationY(), mMaxOffset);
         mTargetAnimation.start();
     }
 
     private void show() {
-        if (mTarget.getTranslationY() <= 0) {
+        if (mSecondary.getTranslationY() <= 0) {
             return;
         }
-        mTargetAnimation.setFloatValues(mTarget.getTranslationY(), 0);
+        mTargetAnimation.setFloatValues(mSecondary.getTranslationY(), 0);
         mTargetAnimation.start();
     }
 
@@ -188,12 +200,6 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
 
     @Override
     public boolean onDown(MotionEvent e) {
-        if (!hasTargets()) {
-            ensureTargets();
-        }
-        if (!mDragging && hasTargets()) {
-            startDragging();
-        }
         return false;
     }
 
@@ -208,7 +214,13 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
 
     @Override
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-        if (mDragging && hasTargets()) {
+        if (!hasTargets()) {
+            ensureTargets();
+        }
+        if (!mDragging && hasTargets()) {
+            startDrag();
+        }
+        if (mDragging) {
             onDrag(distanceY);
             return true;
         }
@@ -229,6 +241,10 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
             }
         }
         return true;
+    }
+
+    public interface OnDragListener {
+        void onDragProgress(float percent);
     }
 
 }
