@@ -1,0 +1,531 @@
+package com.italankin.nestedscrolling;
+
+import android.animation.Animator;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
+import android.content.Context;
+import android.content.res.TypedArray;
+import android.os.Parcel;
+import android.os.Parcelable;
+import android.util.AttributeSet;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.Interpolator;
+
+import java.util.ArrayList;
+
+public class OverlayLayout extends NestedScrollingRelativeLayout implements GestureDetector.OnGestureListener {
+
+    public static final int STATE_GONE = 0;
+    public static final int STATE_VISIBLE = 1;
+
+    private GestureDetector mDetector;
+
+    private View mContent;
+    private View mOverlay;
+
+    private int mOffset = 0;
+    private int mMaxOffset;
+    private float mParallaxFactor = 0.4f;
+    private float mStickyMargin = 0.33f;
+
+    private int mState = STATE_GONE;
+    private boolean mDragging = false;
+    private float mDraggingDy;
+    private long mDraggingStart;
+
+    private ValueAnimator mAnimContent;
+    private ValueAnimator mAnimOverlay;
+    private Interpolator mAnimInterpolator = new DecelerateInterpolator();
+    private int mAnimDuration = 300;
+
+    private ArrayList<OnDragProgressListener> mDragProgressListeners = new ArrayList<>(0);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Constructors
+    ///////////////////////////////////////////////////////////////////////////
+
+    public OverlayLayout(Context context) {
+        this(context, null);
+    }
+
+    public OverlayLayout(Context context, AttributeSet attrs) {
+        super(context, attrs);
+
+        TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.OverlayLayout);
+
+        try {
+            mState = a.getInt(R.styleable.OverlayLayout_ol_initialOverlayState, STATE_GONE);
+        } finally {
+            a.recycle();
+        }
+
+        mDetector = new GestureDetector(context, this);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Public setters
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Initial state of the view. Must be one of {@link #STATE_GONE} or {@link #STATE_VISIBLE}.
+     * Equal to XML attribute {@code ol_initialOverlayState}.
+     *
+     * @param state state value
+     */
+    public void setInitialOverlayState(int state) {
+        if (state != STATE_GONE && state != STATE_VISIBLE) {
+            throw new IllegalArgumentException(
+                    "state must be one of OverlayLayout.STATE_GONE or OverlayLayout.STATE_VISIBLE");
+        }
+        mState = state;
+    }
+
+    /**
+     * Sets the parallax factor.
+     *
+     * @param factor value in range [0; 1]
+     */
+    public void setParallaxFactor(float factor) {
+        if (factor < 0 || factor > 1) {
+            throw new IllegalArgumentException("factor must be in range [0;1]");
+        }
+        mParallaxFactor = factor;
+    }
+
+    /**
+     * Set additional vertical offset. Negative value means that {@code offset} will be substracted
+     * from view's height.
+     *
+     * @param offset offset value
+     */
+    public void setOffset(int offset) {
+        mOffset = offset;
+        updateViewsState();
+    }
+
+    /**
+     * Set sticky margin value (percentage), which will determine overlay's behavior when releasing
+     * a drag. The value
+     * {@code (view height - } {@link #setOffset(int)}{@code ) * } {@code margin}
+     * is the minimum distance to drag before changing overlay state.<br>
+     * Value must be in range [0.1; 0.9].
+     *
+     * @param margin value
+     */
+    public void setStickyMargin(float margin) {
+        if (margin < 0.1 || margin > 0.9) {
+            throw new IllegalArgumentException(
+                    "margin must be a percentage value in range [0.1, 0.9]");
+        }
+        mStickyMargin = margin;
+    }
+
+    /**
+     * Set animation interpolator when returning view's to their appropriate state.
+     *
+     * @param interpolator {@link Interpolator} object
+     */
+    public void setAnimationInterpolator(Interpolator interpolator) {
+        mAnimInterpolator = interpolator;
+        if (mAnimContent != null) {
+            mAnimContent.setInterpolator(interpolator);
+            mAnimOverlay.setInterpolator(interpolator);
+        }
+    }
+
+    /**
+     * Set animation duration when returning view's to their appropriate state.
+     *
+     * @param duration value
+     */
+    public void setReleaseAnimationDuration(int duration) {
+        mAnimDuration = duration;
+        if (mAnimContent != null) {
+            mAnimContent.setDuration(duration);
+            mAnimOverlay.setDuration(duration);
+        }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Public methods
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Hide overlay view.
+     */
+    public void hideOverlay() {
+        hideOverlayInternal();
+    }
+
+    /**
+     * Show overlay view.
+     */
+    public void showOverlay() {
+        showOverlayInternal();
+    }
+
+    /**
+     * Add listener to subscribe to drag events.
+     *
+     * @param listener object
+     */
+    public void addOnDragProgressListener(OnDragProgressListener listener) {
+        if (listener != null) {
+            mDragProgressListeners.add(listener);
+        }
+    }
+
+    /**
+     * Remove previously added listener.
+     *
+     * @param listener object
+     */
+    public void removeOnDragProgressListener(OnDragProgressListener listener) {
+        mDragProgressListeners.remove(listener);
+    }
+
+    /**
+     * @return state of overlay view
+     */
+    public boolean isOverlayShowing() {
+        return mState == STATE_VISIBLE;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Nested scrolling
+    ///////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public void onNestedPreScroll(View target, int dx, int dy, int[] consumed) {
+        if (!hasTargets()) {
+            ensureTargets();
+        }
+        if (mDragging) {
+            onDrag(dy);
+            consumed[1] = dy;
+            dy = 0;
+        }
+        super.onNestedPreScroll(target, dx, dy, consumed);
+    }
+
+    @Override
+    public void onNestedScroll(View target, int dxConsumed, int dyConsumed, int dxUnconsumed, int dyUnconsumed) {
+        if (!hasTargets()) {
+            ensureTargets();
+        }
+        if (Math.abs(dyUnconsumed) > 0 && !mDragging && hasTargets()) {
+            startDrag();
+        }
+        if (mDragging) {
+            onDrag(dyUnconsumed);
+            return;
+        }
+        super.onNestedScroll(target, dxConsumed, dyConsumed, dxUnconsumed, dyUnconsumed);
+    }
+
+    @Override
+    public void onStopNestedScroll(View target) {
+        super.onStopNestedScroll(target);
+        long now = System.currentTimeMillis();
+        if (Math.abs(mDraggingDy / (now - mDraggingStart)) > 2 && mDraggingDy < 0) {
+            hideOverlay();
+            return;
+        }
+        if (mDragging) {
+            releaseDrag();
+        }
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        mDetector.onTouchEvent(event);
+        if (mDragging && event.getAction() == MotionEvent.ACTION_UP) {
+            releaseDrag();
+            return true;
+        }
+        return super.onTouchEvent(event);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Internal
+    ///////////////////////////////////////////////////////////////////////////
+
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        super.onLayout(changed, l, t, r, b);
+        ensureTargets();
+    }
+
+    @Override
+    protected Parcelable onSaveInstanceState() {
+        Parcelable superState = super.onSaveInstanceState();
+        SavedState s = new SavedState(superState);
+        s.state = mState;
+        return s;
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Parcelable state) {
+        if (state instanceof SavedState) {
+            SavedState s = (SavedState) state;
+            super.onRestoreInstanceState(s.getSuperState());
+            mState = s.state;
+        } else {
+            super.onRestoreInstanceState(state);
+        }
+    }
+
+    private void ensureTargets() {
+        if (getChildCount() > 1) {
+            mContent = getChildAt(0);
+            mOverlay = getChildAt(1);
+            if (mAnimOverlay == null) {
+                mAnimOverlay = ObjectAnimator.ofFloat(mOverlay, "translationY", 0, 0);
+                mAnimOverlay.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                    @Override
+                    public void onAnimationUpdate(ValueAnimator animation) {
+                        dispatchDragProgress(mOverlay.getTranslationY() / mMaxOffset);
+                    }
+                });
+                mAnimOverlay.addListener(new Animator.AnimatorListener() {
+                    @Override
+                    public void onAnimationStart(Animator animation) {
+                    }
+
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        mDragging = false;
+                        dispatchDragProgress(mOverlay.getTranslationY() / mMaxOffset);
+                    }
+
+                    @Override
+                    public void onAnimationCancel(Animator animation) {
+                    }
+
+                    @Override
+                    public void onAnimationRepeat(Animator animation) {
+                    }
+                });
+                mAnimOverlay.setDuration(mAnimDuration);
+                mAnimOverlay.setInterpolator(mAnimInterpolator);
+            } else {
+                mAnimOverlay.setTarget(mOverlay);
+            }
+            if (mAnimContent == null) {
+                mAnimContent = ObjectAnimator.ofFloat(mContent, "translationY", 0, 0);
+                mAnimContent.setDuration(mAnimDuration);
+                mAnimContent.setInterpolator(mAnimInterpolator);
+            } else {
+                mAnimContent.setTarget(mContent);
+            }
+            updateViewsState();
+        } else {
+            mAnimOverlay = null;
+            mAnimContent = null;
+        }
+    }
+
+    private boolean hasTargets() {
+        return mContent != null && mOverlay != null;
+    }
+
+    private void startDrag() {
+        if (mAnimOverlay.isRunning()) {
+            return;
+        }
+        mDraggingStart = System.currentTimeMillis();
+        mDraggingDy = 0;
+        mDragging = true;
+    }
+
+    private void onDrag(float dy) {
+        if (mAnimOverlay.isRunning()) {
+            return;
+        }
+        float ty = mOverlay.getTranslationY() - dy;
+        mDraggingDy += dy;
+        if (ty < 0) {
+            mOverlay.setTranslationY(0);
+            if (mParallaxFactor > 0) {
+                mContent.setTranslationY(mMaxOffset * mParallaxFactor);
+            }
+            dispatchDragProgress(0);
+            return;
+        }
+        if (Math.abs(ty) < mMaxOffset) {
+            mOverlay.setTranslationY(ty);
+            if (mParallaxFactor > 0) {
+                mContent.setTranslationY(mContent.getTranslationY() - dy * mParallaxFactor);
+            }
+            dispatchDragProgress(Math.abs(ty) / mMaxOffset);
+        } else {
+            mOverlay.setTranslationY(mMaxOffset);
+            if (mParallaxFactor > 0) {
+                mContent.setTranslationY(0);
+            }
+            dispatchDragProgress(1);
+        }
+    }
+
+    private void releaseDrag() {
+        if (mAnimOverlay.isRunning()) {
+            return;
+        }
+        if (mDragging) {
+            float ty = Math.abs(mOverlay.getTranslationY());
+            if (mState == STATE_VISIBLE) {
+                if (ty > mMaxOffset * mStickyMargin) {
+                    hideOverlayInternal();
+                } else {
+                    showOverlayInternal();
+                }
+            } else {
+                if (ty > mMaxOffset - mMaxOffset * mStickyMargin) {
+                    hideOverlayInternal();
+                } else {
+                    showOverlayInternal();
+                }
+            }
+        }
+    }
+
+    private void hideOverlayInternal() {
+        if (mAnimOverlay.isRunning()) {
+            return;
+        }
+        if (mParallaxFactor > 0) {
+            mAnimContent.setFloatValues(mContent.getTranslationY(), 0);
+            mAnimContent.start();
+        }
+        mAnimOverlay.setFloatValues(mOverlay.getTranslationY(), mMaxOffset);
+        mAnimOverlay.start();
+        mState = STATE_GONE;
+    }
+
+    private void showOverlayInternal() {
+        if (mAnimOverlay.isRunning()) {
+            return;
+        }
+        if (mParallaxFactor > 0) {
+            mAnimContent.setFloatValues(mContent.getTranslationY(),
+                    -mMaxOffset * mParallaxFactor);
+            mAnimContent.start();
+        }
+        mAnimOverlay.setFloatValues(mOverlay.getTranslationY(), 0);
+        mAnimOverlay.start();
+        mState = STATE_VISIBLE;
+    }
+
+    private void updateViewsState() {
+        if (!hasTargets()) {
+            ensureTargets();
+        }
+        if (!hasTargets()) {
+            return;
+        }
+        mMaxOffset = mOverlay.getHeight() - mOffset;
+        if (mState == STATE_GONE) {
+            mContent.setTranslationY(0);
+            mOverlay.setTranslationY(mMaxOffset);
+        } else {
+            mContent.setTranslationY(-mMaxOffset * mParallaxFactor);
+            mOverlay.setTranslationY(0);
+        }
+    }
+
+    private void dispatchDragProgress(float percent) {
+        for (OnDragProgressListener listener : mDragProgressListeners) {
+            listener.onDragProgress(percent);
+        }
+    }
+
+    // OnGestureListener
+
+    @Override
+    public boolean onDown(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public void onShowPress(MotionEvent e) {
+    }
+
+    @Override
+    public boolean onSingleTapUp(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+        if (!hasTargets()) {
+            ensureTargets();
+        }
+        if (!mDragging && hasTargets()) {
+            startDrag();
+        }
+        if (mDragging) {
+            onDrag(distanceY);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void onLongPress(MotionEvent e) {
+    }
+
+    @Override
+    public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+        if (Math.abs(velocityX) < Math.abs(velocityY)) {
+            if (velocityY < 0) {
+                showOverlay();
+            } else {
+                hideOverlay();
+            }
+        }
+        return true;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Interfaces, listeners, etc.
+    ///////////////////////////////////////////////////////////////////////////
+
+    private static class SavedState extends BaseSavedState {
+        int state;
+
+        public SavedState(Parcelable superState) {
+            super(superState);
+        }
+
+        public SavedState(Parcel source) {
+            super(source);
+            state = source.readInt();
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            super.writeToParcel(dest, flags);
+            dest.writeInt(state);
+        }
+
+        public static final Creator<SavedState> CREATOR = new Creator<SavedState>() {
+            @Override
+            public SavedState createFromParcel(Parcel source) {
+                return new SavedState(source);
+            }
+
+            @Override
+            public SavedState[] newArray(int size) {
+                return new SavedState[size];
+            }
+        };
+    }
+
+    public interface OnDragProgressListener {
+        void onDragProgress(float percent);
+    }
+
+}
