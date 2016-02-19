@@ -54,12 +54,6 @@ public class NestedScrollingRelativeLayout extends RelativeLayout implements Nes
 
     @Override
     public void onNestedPreScroll(View target, int dx, int dy, int[] consumed) {
-        Log.d(TAG, "onNestedPreScroll(): dx = [" + dx + "], dy = [" + dy + "], consumed = [" + consumed + "]");
-        float y = getTranslationY();
-        if (y > 0) {
-            setTranslationY(y - dy);
-            consumed[1] += dy;
-        }
         dispatchNestedPreScroll(dx, dy, consumed, null);
     }
 
@@ -76,8 +70,6 @@ public class NestedScrollingRelativeLayout extends RelativeLayout implements Nes
 
     @Override
     public void onNestedScroll(View target, int dxConsumed, int dyConsumed, int dxUnconsumed, int dyUnconsumed) {
-        Log.d(TAG, "onNestedScroll(): dxConsumed = [" + dxConsumed + "], dyConsumed = [" + dyConsumed + "], dxUnconsumed = [" + dxUnconsumed + "], dyUnconsumed = [" + dyUnconsumed + "]");
-        setTranslationY(getTranslationY() - dyUnconsumed);
         dispatchNestedScroll(dxConsumed, dyConsumed, dxUnconsumed, dyUnconsumed, null);
     }
 
@@ -117,7 +109,7 @@ public class NestedScrollingRelativeLayout extends RelativeLayout implements Nes
 
     @Override
     public boolean onNestedFling(View target, float velocityX, float velocityY, boolean consumed) {
-        return getTranslationY() > 0 || dispatchNestedFling(velocityX, velocityY, consumed);
+        return dispatchNestedFling(velocityX, velocityY, consumed);
     }
 
     @Override

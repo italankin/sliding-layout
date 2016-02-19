@@ -1,14 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.italankin.nestedscrolling.NestedScrollingRelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<com.italankin.nestedscrolling.SlidingLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="com.italankin.nestedscrolling.MainActivity">
 
-    <android.support.v7.widget.RecyclerView
-        android:id="@+id/list"
+    <TextView
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:background="#fff"
+        android:gravity="center"
+        android:text="Hello!"
+        android:textColor="#000" />
 
-</com.italankin.nestedscrolling.NestedScrollingRelativeLayout>
+    <com.italankin.nestedscrolling.NestedScrollingRelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <android.support.v7.widget.RecyclerView
+            android:id="@+id/list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            tools:listitem="@layout/item" />
+
+    </com.italankin.nestedscrolling.NestedScrollingRelativeLayout>
+
+</com.italankin.nestedscrolling.SlidingLayout>

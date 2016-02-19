@@ -4,5 +4,6 @@
     android:layout_width="match_parent"
     android:layout_height="92dp"
     android:clickable="true"
+    android:background="#f00"
     android:foreground="@drawable/fg"
     android:orientation="vertical" />
