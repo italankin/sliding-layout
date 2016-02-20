@@ -1,4 +1,4 @@
-package com.italankin.nestedscrolling;
+package com.italankin.slidinglayout;
 
 import android.animation.Animator;
 import android.animation.ObjectAnimator;
@@ -17,10 +17,11 @@ import android.view.animation.Interpolator;
 
 import java.util.ArrayList;
 
-public class OverlayLayout extends NestedScrollingRelativeLayout implements GestureDetector.OnGestureListener {
+public class SlidingLayout extends NestedScrollingRelativeLayout implements GestureDetector.OnGestureListener {
 
     public static final int STATE_GONE = 0;
     public static final int STATE_VISIBLE = 1;
+    public static final float MIN_FLING_VELOCITY = 2f;
 
     private GestureDetector mDetector;
 
@@ -30,7 +31,7 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
     private int mOffset = 0;
     private int mMaxOffset;
     private float mParallaxFactor = 0;
-    private float mStickyMargin = 0.25f;
+    private float mMinScrollPercent = 0.25f;
     /**
      * Measured as px/ms
      */
@@ -54,23 +55,23 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
     // Constructors
     ///////////////////////////////////////////////////////////////////////////
 
-    public OverlayLayout(Context context) {
+    public SlidingLayout(Context context) {
         this(context, null);
     }
 
-    public OverlayLayout(Context context, AttributeSet attrs) {
+    public SlidingLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-        TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.OverlayLayout);
+        TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.SlidingLayout);
 
         float parallaxFactor = -1;
-        float stickyMargin = -1;
+        float minScroll = -1;
 
         try {
-            mState = a.getInt(R.styleable.OverlayLayout_ol_initialOverlayState, STATE_GONE);
-            stickyMargin = a.getFloat(R.styleable.OverlayLayout_ol_stickyMargin, mStickyMargin);
-            parallaxFactor = a.getFloat(R.styleable.OverlayLayout_ol_parallaxFactor, 0);
-            mOffset = a.getDimensionPixelSize(R.styleable.OverlayLayout_ol_offset, 0);
+            mState = a.getInt(R.styleable.SlidingLayout_sl_initialOverlayState, STATE_GONE);
+            minScroll = a.getFloat(R.styleable.SlidingLayout_sl_minScroll, mMinScrollPercent);
+            parallaxFactor = a.getFloat(R.styleable.SlidingLayout_sl_parallaxFactor, 0);
+            mOffset = a.getDimensionPixelSize(R.styleable.SlidingLayout_sl_offset, 0);
         } finally {
             a.recycle();
         }
@@ -79,11 +80,11 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
             setParallaxFactor(parallaxFactor);
         }
 
-        if (stickyMargin != -1) {
-            setStickyMargin(stickyMargin);
+        if (minScroll != -1) {
+            setMinScroll(minScroll);
         }
 
-        mFlingVelocity = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2f,
+        mFlingVelocity = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, MIN_FLING_VELOCITY,
                 context.getResources().getDisplayMetrics());
         mDetector = new GestureDetector(context, this);
     }
@@ -138,12 +139,12 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
      *
      * @param margin value
      */
-    public void setStickyMargin(float margin) {
+    public void setMinScroll(float margin) {
         if (margin < 0.1 || margin > 0.9) {
             throw new IllegalArgumentException(
                     "margin must be a value in range [0.1, 0.9]");
         }
-        mStickyMargin = margin;
+        mMinScrollPercent = margin;
     }
 
     /**
@@ -436,13 +437,13 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
         if (mDragging) {
             float ty = Math.abs(mOverlay.getTranslationY());
             if (mState == STATE_VISIBLE) {
-                if (ty > mMaxOffset * mStickyMargin) {
+                if (ty > mMaxOffset * mMinScrollPercent) {
                     hideOverlayInternal();
                 } else {
                     showOverlayInternal();
                 }
             } else {
-                if (ty > mMaxOffset - mMaxOffset * mStickyMargin) {
+                if (ty > mMaxOffset - mMaxOffset * mMinScrollPercent) {
                     hideOverlayInternal();
                 } else {
                     showOverlayInternal();

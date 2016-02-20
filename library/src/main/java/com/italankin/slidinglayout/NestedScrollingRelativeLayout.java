@@ -1,4 +1,4 @@
-package com.italankin.nestedscrolling;
+package com.italankin.slidinglayout;
 
 import android.content.Context;
 import android.support.v4.view.NestedScrollingChild;
@@ -18,19 +18,15 @@ public class NestedScrollingRelativeLayout extends RelativeLayout implements Nes
     private final NestedScrollingParentHelper mNestedScrollingParentHelper;
 
     public NestedScrollingRelativeLayout(Context context) {
-        this(context, null, 0, 0);
+        this(context, null, 0);
     }
 
     public NestedScrollingRelativeLayout(Context context, AttributeSet attrs) {
-        this(context, attrs, 0, 0);
+        this(context, attrs, 0);
     }
 
     public NestedScrollingRelativeLayout(Context context, AttributeSet attrs, int defStyleAttr) {
-        this(context, attrs, defStyleAttr, 0);
-    }
-
-    public NestedScrollingRelativeLayout(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
-        super(context, attrs, defStyleAttr, defStyleRes);
+        super(context, attrs, defStyleAttr);
         mNestedScrollingChildHelper = new NestedScrollingChildHelper(this);
         mNestedScrollingParentHelper = new NestedScrollingParentHelper(this);
         setNestedScrollingEnabled(true);

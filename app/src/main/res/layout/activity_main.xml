@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.italankin.nestedscrolling.OverlayLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.italankin.slidinglayout.SlidingLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    app:ol_initialOverlayState="gone"
-    tools:context="com.italankin.nestedscrolling.MainActivity">
+    app:sl_initialOverlayState="gone"
+    app:sl_parallaxFactor="0.5"
+    tools:context="com.italankin.example.MainActivity">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -29,7 +30,7 @@
 
     </LinearLayout>
 
-    <com.italankin.nestedscrolling.NestedScrollingRelativeLayout
+    <com.italankin.slidinglayout.NestedScrollingRelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#fff">
@@ -51,6 +52,6 @@
             android:layout_below="@id/child"
             tools:listitem="@android:layout/simple_list_item_1" />
 
-    </com.italankin.nestedscrolling.NestedScrollingRelativeLayout>
+    </com.italankin.slidinglayout.NestedScrollingRelativeLayout>
 
-</com.italankin.nestedscrolling.OverlayLayout>
+</com.italankin.slidinglayout.SlidingLayout>

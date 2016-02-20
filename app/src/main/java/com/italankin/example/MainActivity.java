@@ -1,4 +1,4 @@
-package com.italankin.nestedscrolling;
+package com.italankin.example;
 
 import android.graphics.Color;
 import android.os.Bundle;
@@ -6,6 +6,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+
+import com.italankin.slidinglayout.SlidingLayout;
 
 import java.util.Random;
 
@@ -23,8 +25,8 @@ public class MainActivity extends AppCompatActivity {
         final int[] data = getData();
         ListAdapter adapter = new ListAdapter(this, data);
         recyclerView.setAdapter(adapter);
-        OverlayLayout overlayLayout = (OverlayLayout) findViewById(R.id.layout);
-        overlayLayout.addOnDragProgressListener(new OverlayLayout.OnDragProgressListener() {
+        SlidingLayout slidingLayout = (SlidingLayout) findViewById(R.id.layout);
+        slidingLayout.addOnDragProgressListener(new SlidingLayout.OnDragProgressListener() {
             @Override
             public void onDragProgress(float percent) {
                 Log.d(TAG, "onDragProgress: " + percent);
