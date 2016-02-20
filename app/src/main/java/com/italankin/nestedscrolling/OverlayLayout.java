@@ -350,7 +350,7 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
         if (ty < 0) {
             mOverlay.setTranslationY(0);
             if (mParallaxFactor > 0) {
-                mContent.setTranslationY(mMaxOffset * mParallaxFactor);
+                mContent.setTranslationY(-mMaxOffset * mParallaxFactor);
             }
             dispatchDragProgress(0);
             return;
