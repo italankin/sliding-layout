@@ -8,6 +8,7 @@ import android.content.res.TypedArray;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.AttributeSet;
+import android.util.TypedValue;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
@@ -28,13 +29,19 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
 
     private int mOffset = 0;
     private int mMaxOffset;
-    private float mParallaxFactor = 0.4f;
-    private float mStickyMargin = 0.33f;
+    private float mParallaxFactor = 0;
+    private float mStickyMargin = 0.25f;
+    /**
+     * Measured as px/ms
+     */
+    private float mFlingVelocity;
 
     private int mState = STATE_GONE;
+
     private boolean mDragging = false;
     private float mDraggingDy;
     private long mDraggingStart;
+    private boolean mNestedScrollInProgress = false;
 
     private ValueAnimator mAnimContent;
     private ValueAnimator mAnimOverlay;
@@ -56,12 +63,28 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
 
         TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.OverlayLayout);
 
+        float parallaxFactor = -1;
+        float stickyMargin = -1;
+
         try {
             mState = a.getInt(R.styleable.OverlayLayout_ol_initialOverlayState, STATE_GONE);
+            stickyMargin = a.getFloat(R.styleable.OverlayLayout_ol_stickyMargin, mStickyMargin);
+            parallaxFactor = a.getFloat(R.styleable.OverlayLayout_ol_parallaxFactor, 0);
+            mOffset = a.getDimensionPixelSize(R.styleable.OverlayLayout_ol_offset, 0);
         } finally {
             a.recycle();
         }
 
+        if (parallaxFactor != -1) {
+            setParallaxFactor(parallaxFactor);
+        }
+
+        if (stickyMargin != -1) {
+            setStickyMargin(stickyMargin);
+        }
+
+        mFlingVelocity = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2f,
+                context.getResources().getDisplayMetrics());
         mDetector = new GestureDetector(context, this);
     }
 
@@ -118,13 +141,13 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
     public void setStickyMargin(float margin) {
         if (margin < 0.1 || margin > 0.9) {
             throw new IllegalArgumentException(
-                    "margin must be a percentage value in range [0.1, 0.9]");
+                    "margin must be a value in range [0.1, 0.9]");
         }
         mStickyMargin = margin;
     }
 
     /**
-     * Set animation interpolator when returning view's to their appropriate state.
+     * Set animation interpolator when returning views to their appropriate state.
      *
      * @param interpolator {@link Interpolator} object
      */
@@ -199,6 +222,12 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
     ///////////////////////////////////////////////////////////////////////////
 
     @Override
+    public void onNestedScrollAccepted(View child, View target, int nestedScrollAxes) {
+        mNestedScrollInProgress = true;
+        super.onNestedScrollAccepted(child, target, nestedScrollAxes);
+    }
+
+    @Override
     public void onNestedPreScroll(View target, int dx, int dy, int[] consumed) {
         if (!hasTargets()) {
             ensureTargets();
@@ -216,7 +245,9 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
         if (!hasTargets()) {
             ensureTargets();
         }
-        if (Math.abs(dyUnconsumed) > 0 && !mDragging && hasTargets()) {
+        // if we have unconsumed values and scroll is happening downwards
+        // start dragging
+        if (dyUnconsumed < 0 && !mDragging && hasTargets()) {
             startDrag();
         }
         if (mDragging) {
@@ -229,8 +260,10 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
     @Override
     public void onStopNestedScroll(View target) {
         super.onStopNestedScroll(target);
+        mNestedScrollInProgress = false;
         long now = System.currentTimeMillis();
-        if (Math.abs(mDraggingDy / (now - mDraggingStart)) > 2 && mDraggingDy < 0) {
+        if (Math.abs(mDraggingDy / (now - mDraggingStart)) > mFlingVelocity && mDraggingDy < 0) {
+            // fling happened
             hideOverlay();
             return;
         }
@@ -240,7 +273,23 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
     }
 
     @Override
+    public boolean onInterceptTouchEvent(MotionEvent event) {
+        if (mNestedScrollInProgress) {
+            return false;
+        }
+        mDetector.onTouchEvent(event);
+        if (mDragging && event.getAction() == MotionEvent.ACTION_UP) {
+            releaseDrag();
+            return true;
+        }
+        return super.onInterceptTouchEvent(event);
+    }
+
+    @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if (mNestedScrollInProgress) {
+            return false;
+        }
         mDetector.onTouchEvent(event);
         if (mDragging && event.getAction() == MotionEvent.ACTION_UP) {
             releaseDrag();
@@ -278,8 +327,14 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
         }
     }
 
+    /**
+     * Find targets and setup initial values.
+     */
     private void ensureTargets() {
-        if (getChildCount() > 1) {
+        if (getChildCount() > 2) {
+            throw new IllegalArgumentException("OverlayLayout can host only two child views");
+        } else if (getChildCount() > 1) {
+            // basically assuming the first added view is content and the second is overlay
             mContent = getChildAt(0);
             mOverlay = getChildAt(1);
             if (mAnimOverlay == null) {
@@ -348,6 +403,7 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
         float ty = mOverlay.getTranslationY() - dy;
         mDraggingDy += dy;
         if (ty < 0) {
+            // overlay is fully visible and attempts to move further up
             mOverlay.setTranslationY(0);
             if (mParallaxFactor > 0) {
                 mContent.setTranslationY(-mMaxOffset * mParallaxFactor);
@@ -356,12 +412,15 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
             return;
         }
         if (Math.abs(ty) < mMaxOffset) {
+            // drag is happening
             mOverlay.setTranslationY(ty);
+            // if we are using ability to offset content view, set translation of content
             if (mParallaxFactor > 0) {
                 mContent.setTranslationY(mContent.getTranslationY() - dy * mParallaxFactor);
             }
             dispatchDragProgress(Math.abs(ty) / mMaxOffset);
         } else {
+            // overlay is fully invisible and attempts to move further down
             mOverlay.setTranslationY(mMaxOffset);
             if (mParallaxFactor > 0) {
                 mContent.setTranslationY(0);
@@ -396,19 +455,20 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
         if (mAnimOverlay.isRunning()) {
             return;
         }
+        mState = STATE_GONE;
         if (mParallaxFactor > 0) {
             mAnimContent.setFloatValues(mContent.getTranslationY(), 0);
             mAnimContent.start();
         }
         mAnimOverlay.setFloatValues(mOverlay.getTranslationY(), mMaxOffset);
         mAnimOverlay.start();
-        mState = STATE_GONE;
     }
 
     private void showOverlayInternal() {
         if (mAnimOverlay.isRunning()) {
             return;
         }
+        mState = STATE_VISIBLE;
         if (mParallaxFactor > 0) {
             mAnimContent.setFloatValues(mContent.getTranslationY(),
                     -mMaxOffset * mParallaxFactor);
@@ -416,7 +476,6 @@ public class OverlayLayout extends NestedScrollingRelativeLayout implements Gest
         }
         mAnimOverlay.setFloatValues(mOverlay.getTranslationY(), 0);
         mAnimOverlay.start();
-        mState = STATE_VISIBLE;
     }
 
     private void updateViewsState() {

@@ -5,5 +5,8 @@
             <enum name="gone" value="0" />
             <enum name="visible" value="1" />
         </attr>
+        <attr name="ol_stickyMargin" format="float" />
+        <attr name="ol_offset" format="dimension|reference" />
+        <attr name="ol_parallaxFactor" format="float" />
     </declare-styleable>
 </resources>
