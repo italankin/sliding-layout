@@ -230,9 +230,6 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
 
     @Override
     public void onNestedPreScroll(View target, int dx, int dy, int[] consumed) {
-        if (!hasTargets()) {
-            ensureTargets();
-        }
         if (mDragging) {
             onDrag(dy);
             consumed[1] = dy;
