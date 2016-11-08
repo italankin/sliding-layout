@@ -1,39 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.italankin.slidinglayout.SlidingLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.italankin.slidinglayout.SlidingLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     app:sl_initialOverlayState="gone"
-    app:sl_parallaxFactor="0.5"
+    app:sl_parallaxFactor="0"
     tools:context="com.italankin.example.MainActivity">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="#ddd"
         android:gravity="center"
         android:orientation="vertical">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="#fff"
             android:gravity="center"
             android:text="Hello!"
-            android:textColor="#000" />
+            android:textColor="#000"/>
 
         <Button
+            android:id="@+id/button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Button!" />
+            android:text="Button!"/>
 
     </LinearLayout>
 
-    <com.italankin.slidinglayout.NestedScrollingRelativeLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#fff">
+        android:background="#fff"
+        android:orientation="vertical">
 
         <TextView
             android:id="@+id/child"
@@ -43,15 +46,15 @@
             android:gravity="center"
             android:text="Static view"
             android:textColor="#fff"
-            android:textSize="18sp" />
+            android:textSize="18sp"/>
 
         <android.support.v7.widget.RecyclerView
             android:id="@+id/list"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_below="@id/child"
-            tools:listitem="@android:layout/simple_list_item_1" />
+            tools:listitem="@android:layout/simple_list_item_1"/>
 
-    </com.italankin.slidinglayout.NestedScrollingRelativeLayout>
+    </LinearLayout>
 
 </com.italankin.slidinglayout.SlidingLayout>
