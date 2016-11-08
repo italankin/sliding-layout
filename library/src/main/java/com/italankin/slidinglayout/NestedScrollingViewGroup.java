@@ -9,30 +9,42 @@ import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.RelativeLayout;
+import android.view.ViewGroup;
 
-public class NestedScrollingRelativeLayout extends RelativeLayout implements NestedScrollingChild,
-        NestedScrollingParent {
+/**
+ * {@link ViewGroup} which layouts children with parent's size and supports nested scroll.
+ */
+class NestedScrollingViewGroup extends ViewGroup implements NestedScrollingChild, NestedScrollingParent {
 
     private final NestedScrollingChildHelper mNestedScrollingChildHelper;
     private final NestedScrollingParentHelper mNestedScrollingParentHelper;
 
-    public NestedScrollingRelativeLayout(Context context) {
+    public NestedScrollingViewGroup(Context context) {
         this(context, null, 0);
     }
 
-    public NestedScrollingRelativeLayout(Context context, AttributeSet attrs) {
+    public NestedScrollingViewGroup(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
-    public NestedScrollingRelativeLayout(Context context, AttributeSet attrs, int defStyleAttr) {
+    public NestedScrollingViewGroup(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         mNestedScrollingChildHelper = new NestedScrollingChildHelper(this);
         mNestedScrollingParentHelper = new NestedScrollingParentHelper(this);
         setNestedScrollingEnabled(true);
     }
 
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        if (event.getAction() == MotionEvent.ACTION_UP) {
+            stopNestedScroll();
+        }
+        return true;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
     // NestedScrollingParent
+    ///////////////////////////////////////////////////////////////////////////
 
     @Override
     public boolean onStartNestedScroll(View child, View target, int nestedScrollAxes) {
@@ -62,11 +74,18 @@ public class NestedScrollingRelativeLayout extends RelativeLayout implements Nes
     }
 
     @Override
+    public boolean onNestedPreFling(View target, float velocityX, float velocityY) {
+        return false;
+    }
+
+    @Override
     public void onNestedScroll(View target, int dxConsumed, int dyConsumed, int dxUnconsumed, int dyUnconsumed) {
         dispatchNestedScroll(dxConsumed, dyConsumed, dxUnconsumed, dyUnconsumed, null);
     }
 
+    ///////////////////////////////////////////////////////////////////////////
     // NestedScrollingChild
+    ///////////////////////////////////////////////////////////////////////////
 
     @Override
     public void setNestedScrollingEnabled(boolean enabled) {
@@ -95,7 +114,7 @@ public class NestedScrollingRelativeLayout extends RelativeLayout implements Nes
 
     @Override
     public boolean dispatchNestedScroll(int dxConsumed, int dyConsumed, int dxUnconsumed,
-                                        int dyUnconsumed, int[] offsetInWindow) {
+            int dyUnconsumed, int[] offsetInWindow) {
         return mNestedScrollingChildHelper.dispatchNestedScroll(dxConsumed, dyConsumed,
                 dxUnconsumed, dyUnconsumed, offsetInWindow);
     }
@@ -126,12 +145,35 @@ public class NestedScrollingRelativeLayout extends RelativeLayout implements Nes
         mNestedScrollingChildHelper.onDetachedFromWindow();
     }
 
+    ///////////////////////////////////////////////////////////////////////////
+    // Measure and layout
+    ///////////////////////////////////////////////////////////////////////////
+
     @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_UP) {
-            stopNestedScroll();
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        int widthSpec = MeasureSpec.makeMeasureSpec(getMeasuredWidth(), MeasureSpec.EXACTLY);
+        int heightSpec = MeasureSpec.makeMeasureSpec(getMeasuredHeight(), MeasureSpec.EXACTLY);
+        int count = getChildCount();
+        for (int i = 0; i < count; i++) {
+            View child = getChildAt(i);
+            if (child.getVisibility() != GONE) {
+                child.measure(widthSpec, heightSpec);
+            }
         }
-        return true;
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        int count = getChildCount();
+        for (int i = 0; i < count; i++) {
+            View child = getChildAt(i);
+            int width = getMeasuredWidth();
+            int height = getMeasuredHeight();
+            if (child.getVisibility() != GONE) {
+                child.layout(0, 0, width, height);
+            }
+        }
     }
 
 }

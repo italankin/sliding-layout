@@ -5,8 +5,10 @@ import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.Rect;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.GestureDetector;
@@ -17,13 +19,13 @@ import android.view.animation.Interpolator;
 
 import java.util.ArrayList;
 
-public class SlidingLayout extends NestedScrollingRelativeLayout implements GestureDetector.OnGestureListener {
+public class SlidingLayout extends NestedScrollingViewGroup implements GestureDetector.OnGestureListener {
 
     public static final int STATE_GONE = 0;
     public static final int STATE_VISIBLE = 1;
     public static final float MIN_FLING_VELOCITY = 2f;
 
-    private GestureDetector mDetector;
+    private final GestureDetector mDetector;
 
     private View mContent;
     private View mOverlay;
@@ -32,8 +34,9 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
     private int mMaxOffset;
     private float mParallaxFactor = 0;
     private float mMinScrollPercent = 0.25f;
+    private final Rect mContentClip = new Rect();
     /**
-     * Measured as px/ms
+     * Measured in px/ms
      */
     private float mFlingVelocity;
 
@@ -43,6 +46,7 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
     private float mDraggingDy;
     private long mDraggingStart;
     private boolean mNestedScrollInProgress = false;
+    private float mDragPercent = -1;
 
     private ValueAnimator mAnimContent;
     private ValueAnimator mAnimOverlay;
@@ -114,7 +118,7 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
      */
     public void setParallaxFactor(float factor) {
         if (factor < 0 || factor > 1) {
-            throw new IllegalArgumentException("factor must be in range [0;1]");
+            throw new IllegalArgumentException("factor must be in range [0;1], found: " + factor);
         }
         mParallaxFactor = factor;
     }
@@ -142,7 +146,7 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
     public void setMinScroll(float margin) {
         if (margin < 0.1 || margin > 0.9) {
             throw new IllegalArgumentException(
-                    "margin must be a value in range [0.1, 0.9]");
+                    "margin must be a value in range [0.1, 0.9], found: " + margin);
         }
         mMinScrollPercent = margin;
     }
@@ -216,6 +220,20 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
      */
     public boolean isOverlayShowing() {
         return mState == STATE_VISIBLE;
+    }
+
+    /**
+     * @return overlay child view
+     */
+    public View getOverlayView() {
+        return mOverlay;
+    }
+
+    /**
+     * @return content child view
+     */
+    public View getContentView() {
+        return mContent;
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -340,7 +358,7 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
                 mAnimOverlay.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                     @Override
                     public void onAnimationUpdate(ValueAnimator animation) {
-                        dispatchDragProgress(mOverlay.getTranslationY() / mMaxOffset);
+                        dispatchDragCurrentProgress();
                     }
                 });
                 mAnimOverlay.addListener(new Animator.AnimatorListener() {
@@ -351,7 +369,7 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
                     @Override
                     public void onAnimationEnd(Animator animation) {
                         mDragging = false;
-                        dispatchDragProgress(mOverlay.getTranslationY() / mMaxOffset);
+                        dispatchDragCurrentProgress();
                     }
 
                     @Override
@@ -487,13 +505,43 @@ public class SlidingLayout extends NestedScrollingRelativeLayout implements Gest
         if (mState == STATE_GONE) {
             mContent.setTranslationY(0);
             mOverlay.setTranslationY(mMaxOffset);
+            dispatchDragProgress(1);
         } else {
             mContent.setTranslationY(-mMaxOffset * mParallaxFactor);
             mOverlay.setTranslationY(0);
+            dispatchDragProgress(0);
         }
     }
 
+    private void dispatchDragCurrentProgress() {
+        dispatchDragProgress(mOverlay.getTranslationY() / mMaxOffset);
+    }
+
     private void dispatchDragProgress(float percent) {
+        if (mDragPercent == percent) {
+            return;
+        }
+        mDragPercent = percent;
+        // if parallax factor is 1 we dont need to clip content as it will be not overlapped by
+        // overlay (content translates the same value as overlay)
+        if (mParallaxFactor != 1) {
+            int overlayTranslationY = (int) mOverlay.getTranslationY();
+            int contentTranslationY = (int) mContent.getTranslationY();
+            int bottom = overlayTranslationY - contentTranslationY;
+            int visibility = mContent.getVisibility();
+            if (bottom > 0) {
+                if (visibility != VISIBLE) {
+                    mContent.setVisibility(VISIBLE);
+                }
+                mContentClip.set(0, 0, mContent.getWidth(), bottom);
+                ViewCompat.setClipBounds(mContent, mContentClip);
+            } else {
+                if (visibility != INVISIBLE) {
+                    mContent.setVisibility(INVISIBLE);
+                }
+            }
+        }
+        // notify listeners
         for (OnDragProgressListener listener : mDragProgressListeners) {
             listener.onDragProgress(percent);
         }
