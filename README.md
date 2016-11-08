@@ -1,6 +1,6 @@
 # Sliding Layout
 
-A layout which switches between two views horizontally.
+A layout which switches between two views vertically.
 
 [Demo (YouTube)](https://youtu.be/EOh7x9ScQ-4)
 
