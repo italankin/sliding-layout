@@ -12,4 +12,4 @@ XML | Code | Default value
 `sl_minScroll` | `setMinScroll(float)` | `0.25f`
 `sl_offset` | `setOffset(int)` | `0`
 `sl_parallaxFactor` | `setParallaxFactor(float)` | `0`
-`sl_clipContent` | `setClipContent(boolean)` | `0`
+`sl_clipContent` | `setClipContent(boolean)` | `true`
