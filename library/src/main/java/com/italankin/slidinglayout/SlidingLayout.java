@@ -40,6 +40,8 @@ public class SlidingLayout extends NestedScrollingViewGroup implements GestureDe
      */
     private float mFlingVelocity;
 
+    private boolean mInterceptTouchEvents = false;
+
     private int mState = STATE_GONE;
 
     private boolean mDragging = false;
@@ -162,6 +164,10 @@ public class SlidingLayout extends NestedScrollingViewGroup implements GestureDe
             mAnimContent.setInterpolator(interpolator);
             mAnimOverlay.setInterpolator(interpolator);
         }
+    }
+
+    public void setInterceptTouchEvents(boolean intercept) {
+        mInterceptTouchEvents = intercept;
     }
 
     /**
@@ -290,7 +296,8 @@ public class SlidingLayout extends NestedScrollingViewGroup implements GestureDe
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent event) {
-        if (mNestedScrollInProgress) {
+        if (mNestedScrollInProgress || !mInterceptTouchEvents && event.getY() < mOverlay.getY() &&
+                !mDragging) {
             return false;
         }
         mDetector.onTouchEvent(event);
@@ -303,7 +310,8 @@ public class SlidingLayout extends NestedScrollingViewGroup implements GestureDe
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (mNestedScrollInProgress) {
+        if (mNestedScrollInProgress || !mInterceptTouchEvents && event.getY() < mOverlay.getY() &&
+                !mDragging) {
             return false;
         }
         mDetector.onTouchEvent(event);
