@@ -34,6 +34,7 @@ public class SlidingLayout extends NestedScrollingViewGroup implements GestureDe
     private int mMaxOffset;
     private float mParallaxFactor = 0;
     private float mMinScrollPercent = 0.25f;
+    private boolean mClipContent = true;
     private final Rect mContentClip = new Rect();
     /**
      * Measured in px/ms
@@ -78,6 +79,7 @@ public class SlidingLayout extends NestedScrollingViewGroup implements GestureDe
             minScroll = a.getFloat(R.styleable.SlidingLayout_sl_minScroll, mMinScrollPercent);
             parallaxFactor = a.getFloat(R.styleable.SlidingLayout_sl_parallaxFactor, 0);
             mOffset = a.getDimensionPixelSize(R.styleable.SlidingLayout_sl_offset, 0);
+            mClipContent = a.getBoolean(R.styleable.SlidingLayout_sl_clipContent, mClipContent);
         } finally {
             a.recycle();
         }
@@ -123,6 +125,7 @@ public class SlidingLayout extends NestedScrollingViewGroup implements GestureDe
             throw new IllegalArgumentException("factor must be in range [0;1], found: " + factor);
         }
         mParallaxFactor = factor;
+        updateViewsState();
     }
 
     /**
@@ -180,6 +183,27 @@ public class SlidingLayout extends NestedScrollingViewGroup implements GestureDe
         if (mAnimContent != null) {
             mAnimContent.setDuration(duration);
             mAnimOverlay.setDuration(duration);
+        }
+    }
+
+    /**
+     * Set content clip. If {@code true}, when content view will not be drawn under the overlay.
+     * If you have transparent overlay, disable this option.
+     * This setting is {@code true} by default.
+     *
+     * @param clip should content view be clipped or not
+     */
+    public void setClipContent(boolean clip) {
+        if (mClipContent != clip) {
+            mClipContent = clip;
+            if (!hasTargets()) {
+                return;
+            }
+            if (mClipContent) {
+                dispatchDragCurrentProgress();
+            } else {
+                ViewCompat.setClipBounds(mContent, null);
+            }
         }
     }
 
@@ -532,7 +556,7 @@ public class SlidingLayout extends NestedScrollingViewGroup implements GestureDe
         mDragPercent = percent;
         // if parallax factor is 1 we dont need to clip content as it will be not overlapped by
         // overlay (content translates the same value as overlay)
-        if (mParallaxFactor != 1) {
+        if (mParallaxFactor != 1 && mClipContent) {
             int overlayTranslationY = (int) mOverlay.getTranslationY();
             int contentTranslationY = (int) mContent.getTranslationY();
             int bottom = overlayTranslationY - contentTranslationY;

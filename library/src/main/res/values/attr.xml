@@ -2,11 +2,12 @@
 <resources>
     <declare-styleable name="SlidingLayout">
         <attr name="sl_initialOverlayState" format="enum">
-            <enum name="gone" value="0" />
-            <enum name="visible" value="1" />
+            <enum name="gone" value="0"/>
+            <enum name="visible" value="1"/>
         </attr>
-        <attr name="sl_minScroll" format="float" />
-        <attr name="sl_offset" format="dimension|reference" />
-        <attr name="sl_parallaxFactor" format="float" />
+        <attr name="sl_minScroll" format="float"/>
+        <attr name="sl_offset" format="dimension|reference"/>
+        <attr name="sl_parallaxFactor" format="float"/>
+        <attr name="sl_clipContent" format="boolean|reference"/>
     </declare-styleable>
 </resources>
